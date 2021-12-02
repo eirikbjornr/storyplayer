@@ -180,4 +180,5 @@ button:first-child {
 
 .ne-navlinks.active {
   color: red;
+  font-weight: bold;
 }
