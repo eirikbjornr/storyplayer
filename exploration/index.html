@@ -332,17 +332,23 @@
 
                 analyticsLogger: dataObj => {
                     console.log('ANALYTICS:', dataObj);
+                    console.error("pika", narrativePath);
                     if (dataObj.name == "NARRATIVE_ELEMENT_CHANGE") {
-                        console.error("pika", narrativePath);
                         // check is new narrative element
                         let indexInNarrativePath = findLastIndex(narrativePath, wp => containsNarrativeElement(wp, dataObj.to))
                         if (indexInNarrativePath == -1) {
                             let newWp = newWaypoint(config, romperInstance, dataObj.from, dataObj.to);
                             narrativePath.push(newWp);
                         }
-                        drawNarrativePath(romperInstance, narrativePath);
-                        console.error("chu", narrativePath);
+                        // check is branch off current narrative path
+                        else if (narrativePath[indexInNarrativePath].pathChoice !== dataObj.to) {
+                            narrativePath[indexInNarrativePath].pathChoice = dataObj.to;
+                            // TODO: See if branch-off is a fold-back path
+                            narrativePath.splice(indexInNarrativePath + 1, narrativePath.length - indexInNarrativePath - 1);
+                        }
                     }
+                    drawNarrativePath(romperInstance, narrativePath);
+                    console.error("chu", narrativePath);
                 },
 
                 // ---------------------------------------------------------------------
