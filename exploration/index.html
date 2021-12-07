@@ -65,12 +65,15 @@
     <script>
         window.addEventListener('resize', resizeWindow);
 
-        // console.error(window.Storyplayer.Progression);
-
         let romperInstance;
         let loadedStoryJson;
-        let walker;
-        let progression = [];
+
+        // ---------------------------------------------------------------------
+        // ME: State
+
+        let narrativePath;
+
+        // ---------------------------------------------------------------------
 
         function resizeWindow() {
         }
@@ -242,43 +245,40 @@
             return step.pathOptions[neId] ?? false
         }
 
-        let Walker = class {
-            constructor(experience, romper) {
-                this.experience = experience;
-                this.romper = romper;
+        // A step along the narrative path
+        function newStep(fromNEId, toNEId) {
+            return { from: fromNEId, to: toNEId }
+        }
+
+        // A waypoint along the narrative path
+        function newWaypoint(experience, romper, fromNEId, toNEId) {
+            let newWaypoint = {
+                pathOptions: {},
+                pathChoice: toNEId
+            };
+            let idOfPathOptions = [toNEId];
+
+            // is step to a beginning
+            let beginnings = experience.stories[0].beginnings;
+            if (beginnings.length > 1 && beginnings.some(beginning => beginning.narrative_element_id == toNEId)) {
+                idOfPathOptions.push(...experience.stories[0].beginnings.map(beginning => beginning.narrative_element_id));
             }
 
-            step(fromNEId, toNEId) {
-                let newStep = {
-                    pathOptions: {},
-                    pathChoice: toNEId
-                };
-                let optionIds = [toNEId];
+            // is step from a fork?
+            let fromNE = experience.narrative_elements.find(ne => ne.id == fromNEId)
+            if (fromNE && fromNE.links.length > 1) {
+                idOfPathOptions.push(...fromNE.links.map(link => link.target_narrative_element_id));
+            };
 
-                // is beginning?
-                let beginnings = this.experience.stories[0].beginnings;
-                if (beginnings.length > 1 && beginnings.some(beginning => beginning.narrative_element_id == toNEId)) {
-                    optionIds.push(...this.experience.stories[0].beginnings.map(beginning => beginning.narrative_element_id));
+            // fetch NEs
+            idOfPathOptions.forEach(neId => {
+                if (newWaypoint.pathOptions[neId] == null) { // handle repeats
+                    newWaypoint.pathOptions[neId] = romper._getNarrativeElement(neId);
                 }
+            });
 
-                // has siblings?
-                let fromNE = this.experience.narrative_elements.find(ne => ne.id == fromNEId)
-                if (fromNE && fromNE.links.length > 1) {
-                    optionIds.push(...fromNE.links.map(link => link.target_narrative_element_id));
-                };
-
-                // fetch NEs
-                optionIds.forEach(optionId => {
-                    if (newStep.pathOptions[optionId] == null) { // handle repeats
-                        newStep.pathOptions[optionId] = this.romper._getNarrativeElement(optionId);
-                    }
-                })
-
-                return newStep;
-            }
-        };
-
-
+            return newWaypoint;
+        }
 
         // ---------------------------------------------------------------------
 
@@ -292,6 +292,14 @@
             document.getElementById('restart-button').removeAttribute('disabled');
             document.getElementById('story-title').textContent = config.stories[0].name;
             jsonEditor.set(config);
+
+            // -----------------------------------------------------------------
+            // ME: Init narrative path
+
+            narrativePath = [];
+
+            // -----------------------------------------------------------------
+
             romperInstance = window.Storyplayer.init({
                 target: document.getElementById('romper-target'),
                 staticImageBaseUrl: '/src/assets/images/',
@@ -302,14 +310,14 @@
                 analyticsLogger: dataObj => {
                     console.log('ANALYTICS:', dataObj);
                     if (dataObj.name == "NARRATIVE_ELEMENT_CHANGE") {
-                        console.error("pika", progression);
+                        console.error("pika", narrativePath);
                         // check is new narrative element
-                        let indexInProgression = findLastIndex(progression, step => containsNarrativeElement(step, dataObj.to))
-                        if (indexInProgression == -1) {
-                            let newStep = walker.step(dataObj.from, dataObj.to);
-                            progression.push(newStep);
+                        let indexInNarrativePath = findLastIndex(narrativePath, wp => containsNarrativeElement(wp, dataObj.to))
+                        if (indexInNarrativePath == -1) {
+                            let newWp = newWaypoint(config, romperInstance, dataObj.from, dataObj.to);
+                            narrativePath.push(newWp);
                         }
-                        console.error("chu", progression);
+                        console.error("chu", narrativePath);
                     }
                 },
 
@@ -336,9 +344,6 @@
                         .filter(narrativeElementObject => narrativeElementObject.id === id)[0]
                 ).then(narrativeElementObject => narrativeElementObject ? narrativeElementObject : Promise.reject('no such narrative element: ' + id)),
             });
-
-            // ME: Init experience walker
-            walker = new Walker(config, romperInstance);
 
             romperInstance.start(config.stories[0].id, getVariablesState());
             // romperInstance.on(window.Romper.REASONER_EVENTS.ROMPER_STORY_STARTED, () => {
