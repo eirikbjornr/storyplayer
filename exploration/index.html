@@ -48,7 +48,7 @@
 
     <!-- Explore story -->
     <div id="explorer">
-        <ul id="narrative-route" class="nav-list">
+        <ul id="narrative-path" class="nav-list">
         </ul>
     </div>
 
@@ -280,6 +280,29 @@
             return newWaypoint;
         }
 
+        function addWaypointElement(romper, someWaypoint) {
+            const pathChoiceObj = someWaypoint.pathOptions[someWaypoint.pathChoice]
+            const someWaypoint_li = document.createElement("li");
+            someWaypoint_li.id = pathChoiceObj.name.replace(/ /g, '_');
+            const someWaypoint_link = document.createElement("span");
+            someWaypoint_link.textContent = pathChoiceObj.name;
+            someWaypoint_link.classList.add("ne-navlinks");
+
+            someWaypoint_link.addEventListener("click", function () {
+                romper._jumpToNarrativeElement(someWaypoint.pathChoice);
+            });
+
+            someWaypoint_li.appendChild(someWaypoint_link);
+            return someWaypoint_li;
+        }
+
+        function drawNarrativePath(romper, narrativePath) {
+            const narrativePathEl = document.getElementById("narrative-path");
+            let pathItems = narrativePath.map(waypoint => addWaypointElement(romper, waypoint));
+            // TODO: Profile and optimise
+            narrativePathEl.replaceChildren(...pathItems);
+        }
+
         // ---------------------------------------------------------------------
 
         // run some json through romper
@@ -317,6 +340,7 @@
                             let newWp = newWaypoint(config, romperInstance, dataObj.from, dataObj.to);
                             narrativePath.push(newWp);
                         }
+                        drawNarrativePath(romperInstance, narrativePath);
                         console.error("chu", narrativePath);
                     }
                 },
