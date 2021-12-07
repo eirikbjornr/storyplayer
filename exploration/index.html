@@ -283,7 +283,7 @@
         function addDirectionElement(romper, someDirection) {
             const directionDiv = document.createElement("div");
             directionDiv.id = someDirection.name.replace(/ /g, '_');
-            directionDiv.classList.add("waypoint__direction");
+            directionDiv.classList.add("Direction");
 
             const directionName = document.createElement("span");
             directionName.textContent = someDirection.name;
@@ -297,8 +297,37 @@
         }
 
         function addWaypointElement(romper, someWaypoint) {
-            const pathChoiceObj = someWaypoint.pathOptions[someWaypoint.pathChoice]
-            return addDirectionElement(romper, pathChoiceObj);
+            const waypointDiv = document.createElement("div");
+            waypointDiv.classList.add("Waypoint");
+
+            const chosenDirection = document.createElement("div");
+            waypointDiv.appendChild(chosenDirection);
+
+            let otherDirections = null;
+
+            for (const [idOfNarrativeElement, someDirection] of Object.entries(someWaypoint.pathOptions)) {
+                const directionEl = addDirectionElement(romper, someDirection);
+                if (idOfNarrativeElement == someWaypoint.pathChoice) {
+                    directionEl.classList.add("path-choice");
+                    chosenDirection.appendChild(directionEl);
+                    continue;
+                }
+
+                // if not chosen direction:
+
+                // if first optional direction
+                if (otherDirections == null) {
+                    otherDirections = document.createElement("ul");
+                    waypointDiv.appendChild(otherDirections);
+                }
+
+                directionEl.classList.add("path-option");
+                const liEl = document.createElement("li");
+                liEl.appendChild(directionEl);
+                otherDirections.appendChild(liEl);
+            }
+
+            return waypointDiv;
         }
 
         function drawNarrativePath(romper, narrativePath) {
