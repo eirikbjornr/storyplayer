@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <title>StoryPlayer Demo Stories</title>
     <link href="../dist/storyplayer.css" rel="stylesheet" type="text/css">
-    <link href="demos.css?foo=1231" rel="stylesheet" type="text/css">
+    <link href="demos.css?foo=1230" rel="stylesheet" type="text/css">
     <link href="../node_modules/jsoneditor/dist/jsoneditor.min.css" rel="stylesheet" type="text/css">
     <script src="../node_modules/jsoneditor/dist/jsoneditor.min.js"></script>
 </head>
@@ -280,25 +280,38 @@
             return newWaypoint;
         }
 
-        function addWaypointElement(romper, someWaypoint) {
-            const pathChoiceObj = someWaypoint.pathOptions[someWaypoint.pathChoice]
-            const someWaypoint_li = document.createElement("li");
-            someWaypoint_li.id = pathChoiceObj.name.replace(/ /g, '_');
-            const someWaypoint_link = document.createElement("span");
-            someWaypoint_link.textContent = pathChoiceObj.name;
-            someWaypoint_link.classList.add("ne-navlinks");
+        function addDirectionElement(romper, someDirection) {
+            const directionDiv = document.createElement("div");
+            directionDiv.id = someDirection.name.replace(/ /g, '_');
+            directionDiv.classList.add("waypoint__direction");
 
-            someWaypoint_link.addEventListener("click", function () {
-                romper._jumpToNarrativeElement(someWaypoint.pathChoice);
+            const directionName = document.createElement("span");
+            directionName.textContent = someDirection.name;
+            directionDiv.appendChild(directionName);
+
+            directionDiv.addEventListener("click", function () {
+                romper._jumpToNarrativeElement(someDirection.id);
             });
 
-            someWaypoint_li.appendChild(someWaypoint_link);
-            return someWaypoint_li;
+            return directionDiv;
+        }
+
+        function addWaypointElement(romper, someWaypoint) {
+            const pathChoiceObj = someWaypoint.pathOptions[someWaypoint.pathChoice]
+            return addDirectionElement(romper, pathChoiceObj);
         }
 
         function drawNarrativePath(romper, narrativePath) {
             const narrativePathEl = document.getElementById("narrative-path");
-            let pathItems = narrativePath.map(waypoint => addWaypointElement(romper, waypoint));
+            let pathItems = narrativePath
+                // convert to html elements
+                .map(waypoint => addWaypointElement(romper, waypoint))
+                // convert to list
+                .map(waypointEl => {
+                    const liEl = document.createElement("li");
+                    liEl.appendChild(waypointEl);
+                    return liEl;
+                });
             // TODO: Profile and optimise
             narrativePathEl.replaceChildren(...pathItems);
         }
