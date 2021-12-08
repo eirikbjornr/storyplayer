@@ -230,7 +230,10 @@
         // ---------------------------------------------------------------------
         // ME: Narrative progression utils
 
-        // adapted from: https://stackoverflow.com/questions/18884249/checking-whether-something-is-iterable
+        /**
+         * Check if an object implements a function with the given key.
+         * adapted from: https://stackoverflow.com/questions/18884249/checking-whether-something-is-iterable
+         */
         function implements(methodKey, obj) {
             if (obj == null) {
                 return false;
@@ -238,11 +241,16 @@
             return typeof obj[methodKey] === "function";
         }
 
+        /**
+         * Check if an object implements the iterator protocol.
+         */
         function implementsIterator(obj) {
             return implements(Symbol.iterator, obj);
         }
 
-        // lodash isArrayLike implementation
+        /**
+         * Check if an object matches the lodash definition of an array-like.
+         */
         function isArrayLike(obj) {
             if (obj == null || typeof obj === "function") {
                 return false;
@@ -255,7 +263,10 @@
             return true;
         }
 
-        // adapted from: https://stackoverflow.com/questions/40929260/find-last-index-of-element-inside-array-by-certain-condition
+        /**
+         * Find last index matching the predicate in any array-like object. Lodash definition of array-like.
+         * adapted from: https://stackoverflow.com/questions/40929260/find-last-index-of-element-inside-array-by-certain-condition
+         */
         function findLastIndex(arraylike, predicate) {
             let l = arraylike.length - 1;
             while (l >= 0) {
@@ -265,6 +276,31 @@
                 l = l - 1;
             }
             return -1;
+        }
+
+        /**
+         * Find first index matching the predicate in any array-like object. Lodash definition of array-like.
+         */
+        function findFirstIndex(arraylike, predicate) {
+            let i = 0;
+            while (i <= arraylike.length - 1) {
+                if (predicate(arraylike[i], i, arraylike)) {
+                    return i;
+                }
+                i = i + 1;
+            }
+            return -1;
+        }
+
+        /**
+         * Find the first element matching the predicate in any array-like object. Lodash definition of array-like.
+         */
+        function findFirst(arraylike, predicate) {
+            let loc = findFirstIndex(arraylike, predicate);
+            if (loc === -1) {
+                return undefined;
+            }
+            return arraylike[loc];
         }
 
         /**
@@ -283,7 +319,7 @@
                 return [];
             }
 
-            const rootStory = stories.find(someStory => someStory.id == idOfRootStory);
+            const rootStory = findFirst(stories, someStory => someStory.id == idOfRootStory);
             if (!isArrayLike(rootStory.narrative_element_ids) || !implementsIterator(rootStory.narrative_element_ids)) {
                 console.error("Invalid story! .narrative_element_ids is not an array-like iterable.");
                 return [];
@@ -304,21 +340,26 @@
                 return [];
             }
 
+            if (!implements("filter", allNarrativeElements)) {
+                console.error(".narrative_elements does not implement .filter().");
+                return [];
+            }
+
             return allNarrativeElements.filter((someNE) => {
                 return idsOfNarrativeElements.includes(someNE.id);
             });
         }
 
-        function containsNarrativeElement(someWaypoint, neId) {
-            return someWaypoint.pathOptions[neId] ?? false
-        }
-
-        // A step along the narrative path
+        /**
+         * Create a step along a narrative path.
+         */
         function newStep(fromNEId, toNEId) {
             return { from: fromNEId, to: toNEId }
         }
 
-        // A waypoint along the narrative path
+        /**
+         * Create a waypoint object along a narrative path.
+         */
         function newWaypoint(experience, romper, fromNEId, toNEId) {
             let newWaypoint = {
                 pathOptions: {},
@@ -346,6 +387,13 @@
             });
 
             return newWaypoint;
+        }
+
+        /**
+         * Check a waypoint contains some narrative element (by id).
+         */
+        function containsNarrativeElement(someWaypoint, neId) {
+            return someWaypoint.pathOptions[neId] ?? false
         }
 
         function addDirectionElement(romper, someDirection) {
