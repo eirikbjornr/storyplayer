@@ -72,6 +72,7 @@
         // ME: State
 
         let narrativePath;
+        let narrativeElementsInStory;
 
         // ---------------------------------------------------------------------
 
@@ -229,8 +230,32 @@
         // ---------------------------------------------------------------------
         // ME: Narrative progression utils
 
+        // lodash isArrayLike implementation
+        function isArrayLike(obj) {
+            if (obj == null || typeof obj === "function") {
+                return false;
+            }
+            // false if .length is not a safe integer 0 <= l <= Number.MAX_SAFE_INTEGER
+            let l = obj.length;
+            if (l == null || !Number.isSafeInteger(l) || l < 0) {
+                return false;
+            }
+            return true;
+        }
 
-        // https://stackoverflow.com/questions/40929260/find-last-index-of-element-inside-array-by-certain-condition
+        // adapted from: https://stackoverflow.com/questions/18884249/checking-whether-something-is-iterable
+        function implements(methodKey, obj) {
+            if (obj == null) {
+                return false;
+            }
+            return typeof obj[methodKey] === "function";
+        }
+
+        function implementsIterator(obj) {
+            return implements(Symbol.iterator, obj);
+        }
+
+        // adapted from: https://stackoverflow.com/questions/40929260/find-last-index-of-element-inside-array-by-certain-condition
         function findLastIndex(array, predicate) {
             let l = array.length;
             while (l--) {
@@ -239,6 +264,48 @@
                 }
             }
             return -1;
+        }
+
+        /**
+         * Get id of all narrative elements in a story.
+         * Does not handle substories (nested).
+         * Does not handle live stories (build-as-you-go).
+         */
+        function allNarrativeElementIdsInStory(experience, idOfRootStory) {
+            const stories = experience?.stories;
+            if (!isArrayLike(stories) || !implementsIterator(stories)) {
+                console.error("Invalid experience! .stories is not an array-like iterable.");
+                return [];
+            }
+
+            if (stories.length == 0) {
+                return [];
+            }
+
+            const rootStory = stories.find(someStory => someStory.id == idOfRootStory);
+            if (!isArrayLike(rootStory.narrative_element_ids) || !implementsIterator(rootStory.narrative_element_ids)) {
+                console.error("Invalid story! .narrative_element_ids is not an array-like iterable.");
+                return [];
+            }
+
+            return rootStory.narrative_element_ids;
+        }
+
+        /**
+         * Get narrative elements in an experience from a list of ids.
+         * Does not care about narrative element traversability.
+         * Does not care about narrative element reachability.
+         */
+        function getNarrativeElements(experience, ...idsOfNarrativeElements) {
+            const allNarrativeElements = experience?.narrative_elements;
+            if (!isArrayLike(allNarrativeElements) || !implementsIterator(allNarrativeElements)) {
+                console.error("Invalid experience! .narrative_elements is not an array-like iterable.");
+                return [];
+            }
+
+            return allNarrativeElements.filter((someNE) => {
+                return idsOfNarrativeElements.includes(someNE.id);
+            });
         }
 
         function containsNarrativeElement(someWaypoint, neId) {
@@ -364,6 +431,9 @@
             // ME: Init narrative path
 
             narrativePath = [];
+            narrativeElementsInStory = allNarrativeElementIdsInStory(config, config.stories[0].id);
+            console.error(narrativeElementsInStory);
+            console.error(getNarrativeElements(config, ...narrativeElementsInStory));
 
             // -----------------------------------------------------------------
 
