@@ -230,6 +230,18 @@
         // ---------------------------------------------------------------------
         // ME: Narrative progression utils
 
+        // adapted from: https://stackoverflow.com/questions/18884249/checking-whether-something-is-iterable
+        function implements(methodKey, obj) {
+            if (obj == null) {
+                return false;
+            }
+            return typeof obj[methodKey] === "function";
+        }
+
+        function implementsIterator(obj) {
+            return implements(Symbol.iterator, obj);
+        }
+
         // lodash isArrayLike implementation
         function isArrayLike(obj) {
             if (obj == null || typeof obj === "function") {
@@ -243,25 +255,14 @@
             return true;
         }
 
-        // adapted from: https://stackoverflow.com/questions/18884249/checking-whether-something-is-iterable
-        function implements(methodKey, obj) {
-            if (obj == null) {
-                return false;
-            }
-            return typeof obj[methodKey] === "function";
-        }
-
-        function implementsIterator(obj) {
-            return implements(Symbol.iterator, obj);
-        }
-
         // adapted from: https://stackoverflow.com/questions/40929260/find-last-index-of-element-inside-array-by-certain-condition
-        function findLastIndex(array, predicate) {
-            let l = array.length;
-            while (l--) {
-                if (predicate(array[l], l, array)) {
+        function findLastIndex(arraylike, predicate) {
+            let l = arraylike.length - 1;
+            while (l >= 0) {
+                if (predicate(arraylike[l], l, arraylike)) {
                     return l;
                 }
+                l = l - 1;
             }
             return -1;
         }
