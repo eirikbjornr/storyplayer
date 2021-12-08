@@ -165,20 +165,20 @@ button:first-child {
   width: 20%;
 }
 
-.ne-navlinks {
+.Direction {
   color: #06c;
   text-decoration: underline;
 }
 
-.ne-navlinks:hover {
+.Direction:hover {
   cursor: pointer;
 }
 
-.ne-navlinks.visited {
+.Direction.visited {
   color: purple;
 }
 
-.ne-navlinks.active {
+.Direction.active {
   color: red;
   font-weight: bold;
 }

@@ -71,8 +71,12 @@
         // ---------------------------------------------------------------------
         // ME: State
 
+        // All narrative elements we can traverse from a selected root story.
+        let allNarrativeElements;
+        // Map { narrative element ids: marks } storing marks on narrative elements as we traverse.
+        let neLiveTags;
+        // Chronologically ordered array of traversed narrative waypoints
         let narrativePath;
-        let narrativeElementsInStory;
 
         // ---------------------------------------------------------------------
 
@@ -396,6 +400,47 @@
             return someWaypoint.pathOptions[neId] ?? false
         }
 
+        function moveToWaypoint(someNarrativePath, experience, romper, fromNEId, toNEId) {
+            let pathIndex = findLastIndex(
+                someNarrativePath,
+                someWaypoint => containsNarrativeElement(someWaypoint, toNEId)
+            );
+
+            // If next direction is a new path:
+            // Append it to the end of the path.
+            if (pathIndex == -1) {
+                let newWp = newWaypoint(experience, romper, fromNEId, toNEId);
+                someNarrativePath.push(newWp);
+                return;
+            }
+
+            // If next direction is a branch-off
+            // Roll back to that point in the path, and switch path choice.
+            if (someNarrativePath[pathIndex].pathChoice !== toNEId) {
+                // TODO: See if branch-off is a fold-back path
+                someNarrativePath.splice(pathIndex + 1, someNarrativePath.length - pathIndex - 1);
+                someNarrativePath[pathIndex].pathChoice = toNEId;
+                return;
+            }
+
+            // path choice is not new
+            return;
+        }
+
+        function setLiveTag(someLiveTagsMap, action) {
+            switch (action.type) {
+                case "VISIT":
+                    const prevState = someLiveTagsMap[action.id] ?? {};
+                    someLiveTagsMap[action.id] = {
+                        ...prevState,
+                        visited: true,
+                    };
+                    return;
+                default:
+                    return;
+            }
+        }
+
         function addDirectionElement(romper, someDirection) {
             const directionDiv = document.createElement("div");
             directionDiv.id = someDirection.name.replace(/ /g, '_');
@@ -412,7 +457,7 @@
             return directionDiv;
         }
 
-        function addWaypointElement(romper, someWaypoint) {
+        function addWaypointElement(romper, someWaypoint, neLiveTags) {
             const waypointDiv = document.createElement("div");
             waypointDiv.classList.add("Waypoint");
 
@@ -423,6 +468,10 @@
 
             for (const [idOfNarrativeElement, someDirection] of Object.entries(someWaypoint.pathOptions)) {
                 const directionEl = addDirectionElement(romper, someDirection);
+
+                if (neLiveTags[idOfNarrativeElement]?.visited) {
+                    directionEl.classList.add("visited");
+                }
 
                 // if is chosen direction
                 if (idOfNarrativeElement == someWaypoint.pathChoice) {
@@ -448,11 +497,11 @@
             return waypointDiv;
         }
 
-        function drawNarrativePath(romper, narrativePath) {
+        function drawNarrativePath(romper, narrativePath, neLiveTags) {
             const narrativePathEl = document.getElementById("narrative-path");
             let pathItems = narrativePath
                 // convert to html elements
-                .map(waypoint => addWaypointElement(romper, waypoint))
+                .map(waypoint => addWaypointElement(romper, waypoint, neLiveTags))
                 // convert to list
                 .map(waypointEl => {
                     const liEl = document.createElement("li");
@@ -479,10 +528,10 @@
             // -----------------------------------------------------------------
             // ME: Init narrative path
 
+            let idsOfNarrativeElementsInStory = allNarrativeElementIdsInStory(config, config.stories[0].id);
+            allNarrativeElements = getNarrativeElements(config, ...idsOfNarrativeElementsInStory);
             narrativePath = [];
-            narrativeElementsInStory = allNarrativeElementIdsInStory(config, config.stories[0].id);
-            console.error(narrativeElementsInStory);
-            console.error(getNarrativeElements(config, ...narrativeElementsInStory));
+            neLiveTags = {};
 
             // -----------------------------------------------------------------
 
@@ -490,28 +539,18 @@
                 target: document.getElementById('romper-target'),
                 staticImageBaseUrl: '/src/assets/images/',
 
-                // ---------------------------------------------------------------------
+                // -------------------------------------------------------------
                 // ME: Narrative progression analytics
 
                 analyticsLogger: dataObj => {
                     console.log('ANALYTICS:', dataObj);
-                    console.error("pika", narrativePath);
+                    console.error("pika", narrativePath, neLiveTags);
                     if (dataObj.name == "NARRATIVE_ELEMENT_CHANGE") {
-                        // check is new narrative element
-                        let indexInNarrativePath = findLastIndex(narrativePath, wp => containsNarrativeElement(wp, dataObj.to))
-                        if (indexInNarrativePath == -1) {
-                            let newWp = newWaypoint(config, romperInstance, dataObj.from, dataObj.to);
-                            narrativePath.push(newWp);
-                        }
-                        // check is branch off current narrative path
-                        else if (narrativePath[indexInNarrativePath].pathChoice !== dataObj.to) {
-                            narrativePath[indexInNarrativePath].pathChoice = dataObj.to;
-                            // TODO: See if branch-off is a fold-back path
-                            narrativePath.splice(indexInNarrativePath + 1, narrativePath.length - indexInNarrativePath - 1);
-                        }
+                        moveToWaypoint(narrativePath, config, romperInstance, dataObj.from, dataObj.to);
+                        setLiveTag(neLiveTags, { type: "VISIT", id: dataObj.to });
                     }
-                    drawNarrativePath(romperInstance, narrativePath);
-                    console.error("chu", narrativePath);
+                    drawNarrativePath(romperInstance, narrativePath, neLiveTags);
+                    console.error("chu", narrativePath, neLiveTags);
                 },
 
                 // ---------------------------------------------------------------------
