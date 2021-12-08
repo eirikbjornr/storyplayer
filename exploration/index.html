@@ -307,6 +307,8 @@
 
             for (const [idOfNarrativeElement, someDirection] of Object.entries(someWaypoint.pathOptions)) {
                 const directionEl = addDirectionElement(romper, someDirection);
+
+                // if is chosen direction
                 if (idOfNarrativeElement == someWaypoint.pathChoice) {
                     directionEl.classList.add("path-choice");
                     chosenDirection.appendChild(directionEl);
