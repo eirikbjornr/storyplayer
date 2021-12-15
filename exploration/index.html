@@ -71,8 +71,10 @@
         // ---------------------------------------------------------------------
         // ME: State
 
-        // All narrative elements we can traverse from a selected root story.
+        // All narrative elements in a root story
         let allNarrativeElements;
+        // All representations in a root story
+        let allRepresentations;
         // Map { narrative element ids: marks } storing marks on narrative elements as we traverse.
         let neState;
         // Chronologically ordered array of traversed narrative waypoints
@@ -332,6 +334,21 @@
             return rootStory.narrative_element_ids;
         }
 
+        function getNarrativeElementById(experience, idOfNarrativeElement) {
+            const allNarrativeElements = experience?.narrative_elements;
+            if (!isArrayLike(allNarrativeElements) || !implementsIterator(allNarrativeElements)) {
+                console.error("Invalid experience! .narrative_elements is not an array-like iterable.");
+                return null;
+            }
+
+            if (!implements("find", allNarrativeElements)) {
+                console.error(".narrative_elements does not implement .find().");
+                return null;
+            }
+
+            return allNarrativeElements.find(someNE => someNE.id == idOfNarrativeElement);
+        }
+
         /**
          * Get narrative elements in an experience from a list of ids.
          * Does not care about narrative element traversability.
@@ -352,6 +369,82 @@
             return allNarrativeElements.filter((someNE) => {
                 return idsOfNarrativeElements.includes(someNE.id);
             });
+        }
+
+        function getRepresentationById(experience, repId) {
+            const allRepresentations = experience?.representations;
+            if (!isArrayLike(allRepresentations) || !implementsIterator(allRepresentations)) {
+                console.error("Invalid experience! .representations is not an array-like iterable.");
+                return null;
+            }
+
+            return findFirst(allRepresentations, function (rep) {
+                return rep.id == repId;
+            });
+        }
+
+        function getRepresentationForNarrativeElementById(experience, neId) {
+            let ne = getNarrativeElementById(experience, neId);
+            if (ne == null) {
+                return null;
+            }
+
+            const allRepresentationCollections = experience?.representation_collections;
+            if (!isArrayLike(allRepresentationCollections) || !implementsIterator(allRepresentationCollections)) {
+                console.error("Invalid experience! .representation_collections is not an array-like iterable.");
+                return null;
+            }
+
+            let repCol = findFirst(allRepresentationCollections, function (repCol) {
+                return repCol.id == ne.body.representation_collection_target_id;
+            });
+
+            if (!isArrayLike(repCol.representations) || !implementsIterator(repCol.representations)) {
+                console.error("Invalid representation collection! .representations is not an array-like iterable.");
+                return null;
+            }
+
+            if (repCol.representations.length == 0) {
+                return null;
+            }
+
+            // Assume only one representation
+            let repId = repCol.representations[0]?.representation_id
+            return getRepresentationById(experience, repId);
+        }
+
+        function allRepresentationsInStory(experience, idOfRootStory) {
+            const stories = experience?.stories;
+            if (!isArrayLike(stories) || !implementsIterator(stories)) {
+                console.error("Invalid experience! .stories is not an array-like iterable.");
+                return [];
+            }
+
+            if (stories.length == 0) {
+                return [];
+            }
+
+            const rootStory = findFirst(stories, someStory => someStory.id == idOfRootStory);
+            if (!isArrayLike(rootStory.representations) || !implementsIterator(rootStory.representations)) {
+                console.error("Invalid story! .representations is not an array-like iterable.");
+                return [];
+            }
+
+            return rootStory.representations;
+        }
+
+        function getAssetCollectionById(experience, assetId) {
+            const assetCollections = experience?.asset_collections;
+            if (!isArrayLike(assetCollections) || !implementsIterator(assetCollections)) {
+                console.error("Invalid experience! .asset_collections is not an array-like iterable.");
+                return null;
+            }
+
+            if (assetCollections.length == 0) {
+                return null;
+            }
+
+            return findFirst(assetCollections, someAC => someAC.id == assetId);
         }
 
         /**
@@ -386,7 +479,24 @@
             // fetch NEs
             idOfPathOptions.forEach(neId => {
                 if (newWaypoint.pathOptions[neId] == null) { // handle repeats
-                    newWaypoint.pathOptions[neId] = romper._getNarrativeElement(neId);
+                    let ne = romper._getNarrativeElement(neId);
+                    newWaypoint.pathOptions[neId] = {
+                        name: ne.name,
+                        narrativeEl: ne,
+                    };
+                }
+            });
+
+            // fetch Reps
+            idOfPathOptions.forEach(neId => {
+                if (newWaypoint.pathOptions[neId].representation == null) {
+                    // fetch rep
+                    let rep = getRepresentationForNarrativeElementById(experience, neId);
+                    newWaypoint.pathOptions[neId].representation = rep
+                    // fetch video
+                    let assetId = rep.asset_collections.foreground_id;
+                    let assetCol = getAssetCollectionById(experience, assetId)
+                    newWaypoint.pathOptions[neId].assetCol = assetCol;
                 }
             });
 
@@ -449,6 +559,11 @@
             const directionName = document.createElement("span");
             directionName.textContent = someDirection.name;
             directionDiv.appendChild(directionName);
+
+            const directionMeta = document.createElement("span");
+            console.log(Object.getOwnPropertyNames(someDirection))
+            directionMeta.textContent = ` (${someDirection.assetCol.tags.duration} sec)`
+            directionDiv.appendChild(directionMeta);
 
             directionDiv.addEventListener("click", function () {
                 romper._jumpToNarrativeElement(someDirection.id);
@@ -530,6 +645,7 @@
 
             let idsOfNarrativeElementsInStory = allNarrativeElementIdsInStory(config, config.stories[0].id);
             allNarrativeElements = getNarrativeElements(config, ...idsOfNarrativeElementsInStory);
+            allRepresentations = allRepresentationsInStory(config, config.stories[0].id)
             narrativePath = [];
             neState = {};
 
