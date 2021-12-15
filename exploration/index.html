@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <title>StoryPlayer Demo Stories</title>
     <link href="../dist/storyplayer.css" rel="stylesheet" type="text/css">
-    <link href="demos.css?foo=1230" rel="stylesheet" type="text/css">
+    <link href="demos.css?foo=6" rel="stylesheet" type="text/css">
     <link href="../node_modules/jsoneditor/dist/jsoneditor.min.css" rel="stylesheet" type="text/css">
     <script src="../node_modules/jsoneditor/dist/jsoneditor.min.js"></script>
 </head>
@@ -79,6 +79,10 @@
         let neState;
         // Chronologically ordered array of traversed narrative waypoints
         let narrativePath;
+        // current position
+        let idOfCurrentNarrativeEl;
+        let idOfCurrentRepresentation;
+        let currentPlayheadTime;
 
         // ---------------------------------------------------------------------
 
@@ -573,6 +577,7 @@
 
         function addWaypointElement(romper, someWaypoint, neState) {
             const waypointDiv = document.createElement("div");
+            waypointDiv.id = someWaypoint.pathChoice;
             waypointDiv.classList.add("Waypoint");
 
             const chosenDirection = document.createElement("div");
@@ -609,21 +614,6 @@
             }
 
             return waypointDiv;
-        }
-
-        function drawNarrativePath(romper, narrativePath, neLiveTags) {
-            const narrativePathEl = document.getElementById("narrative-path");
-            let pathItems = narrativePath
-                // convert to html elements
-                .map(waypoint => addWaypointElement(romper, waypoint, neLiveTags))
-                // convert to list
-                .map(waypointEl => {
-                    const liEl = document.createElement("li");
-                    liEl.appendChild(waypointEl);
-                    return liEl;
-                });
-            // TODO: Profile and optimise
-            narrativePathEl.replaceChildren(...pathItems);
         }
 
         // ---------------------------------------------------------------------
@@ -663,8 +653,35 @@
                     if (dataObj.name == "NARRATIVE_ELEMENT_CHANGE") {
                         moveToWaypoint(narrativePath, config, romperInstance, dataObj.from, dataObj.to);
                         reduceNarrativeState(neState, { type: "VISIT", id: dataObj.to });
+                        idOfCurrentNarrativeEl = dataObj.to;
+                        idOfCurrentRepresentation = getRepresentationForNarrativeElementById(dataObj.to)?.id
+                        currentPlayheadTime = 0.0
                     }
-                    drawNarrativePath(romperInstance, narrativePath, neState);
+
+                    // DRAWING NARRATIVE PATH
+                    const narrativePathEl = document.getElementById("narrative-path");
+
+                    // convert to html elements
+                    let pathItems = narrativePath.map(waypoint => {
+                        return addWaypointElement(romperInstance, waypoint, neState);
+                    });
+
+                    // draw current position
+                    let activeWp = pathItems.find(waypoint => {
+                        return waypoint.id == idOfCurrentNarrativeEl;
+                    });
+                    activeWp?.classList.add("active");
+
+                    // convert to list
+                    pathItems = pathItems.map(waypointEl => {
+                        const liEl = document.createElement("li");
+                        liEl.appendChild(waypointEl);
+                        return liEl;
+                    });
+
+                    // TODO: Profile and optimise
+                    narrativePathEl.replaceChildren(...pathItems);
+
                     console.error("chu", narrativePath, neState);
                 },
 
