@@ -82,7 +82,8 @@
         // current position
         let idOfCurrentNarrativeEl;
         let idOfCurrentRepresentation;
-        let currentPlayheadTime;
+        let localPlayheadTime;
+        let globalPlayheadTime;
 
         // ---------------------------------------------------------------------
 
@@ -637,6 +638,14 @@
             allRepresentations = allRepresentationsInStory(config, config.stories[0].id)
             narrativePath = [];
             neState = {};
+            let playheadPoller;
+            localPlayheadTime = 0.0;
+            globalPlayheadTime = 0.0;
+            const positionEl = document.createElement("div");
+            const updatePosition = (secsSoFar) => {
+                timeSoFar = new Date(secsSoFar * 1000).toISOString().substr(11, 8)
+                positionEl.textContent = `Current time: ${timeSoFar}`;
+            }
 
             // -----------------------------------------------------------------
 
@@ -654,8 +663,39 @@
                         moveToWaypoint(narrativePath, config, romperInstance, dataObj.from, dataObj.to);
                         reduceNarrativeState(neState, { type: "VISIT", id: dataObj.to });
                         idOfCurrentNarrativeEl = dataObj.to;
-                        idOfCurrentRepresentation = getRepresentationForNarrativeElementById(dataObj.to)?.id
-                        currentPlayheadTime = 0.0
+                        idOfCurrentRepresentation = getRepresentationForNarrativeElementById(dataObj.to)?.id;
+                    }
+                    if (dataObj.type == "RENDERER_ACTION") {
+                        if (playheadPoller) {
+                            clearInterval(playheadPoller);
+                            playheadPoller = undefined;
+                        }
+                        playheadPoller = setInterval(function getPlayheadTime() {
+                            let { currentTime, duration } = romperInstance
+                                .getCurrentRenderer()
+                                .getCurrentTime();
+                            if (!Number.isFinite(currentTime)) {
+                                return;
+                            }
+                            currentTime = Number.parseInt(currentTime, 10); // assume seconds
+                            if (localPlayheadTime == currentTime) {
+                                return;
+                            }
+                            localPlayheadTime = currentTime;
+                            duration = Number.parseInt(duration, 10);
+                            let indexOfCorrentPosition = findLastIndex(narrativePath, wp => {
+                                return wp.pathChoice == idOfCurrentNarrativeEl;
+                            });
+                            let pathToCurrentPosition = narrativePath.slice(0, indexOfCorrentPosition);
+                            let durationSoFar = 0.0;
+                            durationSoFar = pathToCurrentPosition.reduce(
+                                function (sumSoFar, someWaypoint) {
+                                    wpDuration = someWaypoint.pathOptions[someWaypoint.pathChoice]?.assetCol.tags.duration ?? 0;
+                                    return sumSoFar + wpDuration;
+                                }, durationSoFar)
+                            globalPlayheadTime = durationSoFar + localPlayheadTime;
+                            updatePosition(globalPlayheadTime);
+                        }, 50);
                     }
 
                     // DRAWING NARRATIVE PATH
@@ -671,6 +711,7 @@
                         return waypoint.id == idOfCurrentNarrativeEl;
                     });
                     activeWp?.classList.add("active");
+                    activeWp.appendChild(positionEl);
 
                     // convert to list
                     pathItems = pathItems.map(waypointEl => {
@@ -708,6 +749,14 @@
                         .filter(narrativeElementObject => narrativeElementObject.id === id)[0]
                 ).then(narrativeElementObject => narrativeElementObject ? narrativeElementObject : Promise.reject('no such narrative element: ' + id)),
             });
+
+            // -------------------------------------------------------------
+            // ME: Narrative position
+
+            updatePosition(globalPlayheadTime);
+
+            // -------------------------------------------------------------
+
 
             romperInstance.start(config.stories[0].id, getVariablesState());
             // romperInstance.on(window.Romper.REASONER_EVENTS.ROMPER_STORY_STARTED, () => {
