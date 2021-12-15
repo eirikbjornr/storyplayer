@@ -74,7 +74,7 @@
         // All narrative elements we can traverse from a selected root story.
         let allNarrativeElements;
         // Map { narrative element ids: marks } storing marks on narrative elements as we traverse.
-        let neLiveTags;
+        let neState;
         // Chronologically ordered array of traversed narrative waypoints
         let narrativePath;
 
@@ -427,11 +427,11 @@
             return;
         }
 
-        function setLiveTag(someLiveTagsMap, action) {
+        function reduceNarrativeState(state, action) {
             switch (action.type) {
                 case "VISIT":
-                    const prevState = someLiveTagsMap[action.id] ?? {};
-                    someLiveTagsMap[action.id] = {
+                    const prevState = state[action.id] ?? {};
+                    state[action.id] = {
                         ...prevState,
                         visited: true,
                     };
@@ -457,7 +457,7 @@
             return directionDiv;
         }
 
-        function addWaypointElement(romper, someWaypoint, neLiveTags) {
+        function addWaypointElement(romper, someWaypoint, neState) {
             const waypointDiv = document.createElement("div");
             waypointDiv.classList.add("Waypoint");
 
@@ -469,7 +469,7 @@
             for (const [idOfNarrativeElement, someDirection] of Object.entries(someWaypoint.pathOptions)) {
                 const directionEl = addDirectionElement(romper, someDirection);
 
-                if (neLiveTags[idOfNarrativeElement]?.visited) {
+                if (neState[idOfNarrativeElement]?.visited) {
                     directionEl.classList.add("visited");
                 }
 
@@ -531,7 +531,7 @@
             let idsOfNarrativeElementsInStory = allNarrativeElementIdsInStory(config, config.stories[0].id);
             allNarrativeElements = getNarrativeElements(config, ...idsOfNarrativeElementsInStory);
             narrativePath = [];
-            neLiveTags = {};
+            neState = {};
 
             // -----------------------------------------------------------------
 
@@ -544,13 +544,13 @@
 
                 analyticsLogger: dataObj => {
                     console.log('ANALYTICS:', dataObj);
-                    console.error("pika", narrativePath, neLiveTags);
+                    console.error("pika", narrativePath, neState);
                     if (dataObj.name == "NARRATIVE_ELEMENT_CHANGE") {
                         moveToWaypoint(narrativePath, config, romperInstance, dataObj.from, dataObj.to);
-                        setLiveTag(neLiveTags, { type: "VISIT", id: dataObj.to });
+                        reduceNarrativeState(neState, { type: "VISIT", id: dataObj.to });
                     }
-                    drawNarrativePath(romperInstance, narrativePath, neLiveTags);
-                    console.error("chu", narrativePath, neLiveTags);
+                    drawNarrativePath(romperInstance, narrativePath, neState);
+                    console.error("chu", narrativePath, neState);
                 },
 
                 // ---------------------------------------------------------------------
